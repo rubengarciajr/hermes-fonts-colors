@@ -12,8 +12,7 @@
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.25rem;
-  max-width: 920px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 [data-plugin="hermes-fonts-colors"] .hfc-loading {
@@ -204,4 +203,28 @@
 [data-plugin="hermes-fonts-colors"] .hfc-update-error {
   border-color: color-mix(in srgb, var(--color-destructive, #fb2c36) 40%, transparent);
   background: color-mix(in srgb, var(--color-destructive, #fb2c36) 10%, transparent);
+}
+
+/* Version line at the bottom of the page. Always visible so the user can
+   see what version they're running and click through to GitHub. */
+[data-plugin="hermes-fonts-colors"] .hfc-version {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--midground-base) 10%, transparent);
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+  font-family: var(--theme-font-mono);
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-version-link {
+  color: var(--color-muted-foreground);
+  text-decoration: none;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-version-link:hover {
+  color: var(--hfc-accent-color, var(--color-ring));
+  text-decoration: underline;
 }

@@ -365,6 +365,12 @@
     var phase = props.phase;
     if (!info) return null;
 
+    // We use the default solid Button variant (no invert/outlined/ghost
+    // props) so every action here gets `bg-midground text-background-base`
+    // — cream background + explicit dark text — regardless of what the user
+    // has set --color-foreground to. Critical: outlined/ghost variants
+    // inherit text color from the cascade, so a white --color-foreground
+    // would render the button text white-on-cream.
     if (phase === "updated") {
       return h("div", { className: "hfc-update-banner hfc-update-success" },
         h("span", null, "Updated to v" + (info.local || "?") + ". Reload the dashboard to apply."),
@@ -379,7 +385,7 @@
     if (phase === "error" && props.errorMessage) {
       return h("div", { className: "hfc-update-banner hfc-update-error" },
         h("span", null, "Update failed: " + props.errorMessage),
-        h(C.Button, { ghost: true, onClick: props.onDismiss }, "Dismiss")
+        h(C.Button, { onClick: props.onDismiss }, "Dismiss")
       );
     }
     if (info.update_available) {
@@ -389,7 +395,7 @@
           h("code", null, "v" + info.local), " → ",
           h("code", null, "v" + info.remote)
         ),
-        h(C.Button, { outlined: true, invert: true, onClick: props.onUpdate }, "Update now")
+        h(C.Button, { onClick: props.onUpdate }, "Update now")
       );
     }
     return null;
@@ -568,14 +574,13 @@
         ),
         h("div", { className: "hfc-header-actions" },
           statusBadge,
-          // Nous DS Button: `invert` = subtle 15% bg + outline; default = solid
-          // cream. We use `invert` while overrides are ON (they're already
-          // active, so the button is a de-emphasized "turn it off") and the
-          // solid default while OFF (prominent "turn it on" CTA).
-          h(C.Button, {
-            invert: draft.enabled,
-            onClick: onToggle
-          }, draft.enabled ? "Disable overrides" : "Enable overrides")
+          // All action buttons use the default solid Nous Button variant
+          // (cream bg + explicit dark text via `text-background-base`). We
+          // don't use invert/outlined/ghost props anywhere because those
+          // variants inherit text color from the cascade — and a user with
+          // a light --color-foreground would get unreadable button text.
+          h(C.Button, { onClick: onToggle },
+            draft.enabled ? "Disable overrides" : "Enable overrides")
         )
       ),
 
@@ -676,22 +681,35 @@
         )
       ),
 
-      // Footer actions
+      // Footer actions — all default solid so text is guaranteed dark.
       h("div", { className: "hfc-footer" },
-        h(C.Button, {
-          outlined: true,
-          invert: true,
-          onClick: onReset
-        }, "Reset to defaults"),
+        h(C.Button, { onClick: onReset }, "Reset to defaults"),
         h("div", { className: "hfc-footer-right" },
           dirty
-            ? h(C.Button, { ghost: true, onClick: onRevert }, "Revert changes")
+            ? h(C.Button, { onClick: onRevert }, "Revert changes")
             : null,
           h(C.Button, {
             disabled: !dirty || status.kind === "saving",
             onClick: onSave
           }, dirty ? "Save changes" : "Saved")
         )
+      ),
+
+      // Version footer — always visible so the user knows what they're on
+      // and can see the GitHub origin even when no update is available.
+      h("div", { className: "hfc-version" },
+        h("span", null,
+          "v" + (versionInfo && versionInfo.local ? versionInfo.local : "?"),
+          versionInfo && versionInfo.remote && versionInfo.remote === versionInfo.local
+            ? " — up to date"
+            : null
+        ),
+        h("a", {
+          href: "https://github.com/rubengarciajr/hermes-fonts-colors",
+          target: "_blank",
+          rel: "noopener noreferrer",
+          className: "hfc-version-link"
+        }, "github.com/rubengarciajr/hermes-fonts-colors")
       )
     );
   }
