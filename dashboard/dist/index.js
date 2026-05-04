@@ -117,24 +117,30 @@
     //   --theme-font-* and --theme-base-size — the design-system-level vars
     //     so every component that reads them (html, body, code, .font-mono)
     //     picks up our fonts without needing per-element overrides.
-    //   --color-foreground — the Tailwind utility most body text uses.
-    //   --color-card-foreground / --color-popover-foreground — so cards and
-    //     popovers stay legible against backgrounds.
     //   --color-ring — so focus outlines pick up the user's accent.
     //   h1-h6 / code — explicit element selectors with !important so we
     //     win against component-level styles.
+    //   .font-courier / .font-expanded / .font-compressed / .font-mondwest /
+    //     .font-trim — the Nous Research design-system "@utility" font classes
+    //     hardcoded on sidebar items, page titles, card titles, inputs, and
+    //     selects. Without these overrides the dashboard chrome stays in
+    //     Courier Prime / Rules Expanded regardless of what the user picks.
     //
     // Heading scale is applied to h1-h3 with a geometric ramp; h4-h6 stay
     // close to body size so dense pages don't blow out.
+    //
+    // We deliberately do NOT override --color-foreground or
+    // --color-card-foreground here — those are integral to the design-system
+    // color theory and overriding them tints button labels and disabled
+    // states. Body color is applied directly to the <body> element instead;
+    // it cascades into paragraph/inline text but doesn't fight Tailwind
+    // text-* utilities the DS uses for chrome.
     return [
       ":root {",
       "  --theme-font-sans: " + bodyStack + ";",
       "  --theme-font-display: " + displayStack + ";",
       "  --theme-font-mono: " + monoStack + ";",
       "  --theme-base-size: " + baseSize + "px;",
-      "  --color-foreground: " + s.bodyColor + ";",
-      "  --color-card-foreground: " + s.bodyColor + ";",
-      "  --color-popover-foreground: " + s.bodyColor + ";",
       "  --color-ring: " + s.accentColor + ";",
       "  --hfc-heading-color: " + s.headingColor + ";",
       "  --hfc-body-color: " + s.bodyColor + ";",
@@ -143,6 +149,9 @@
       "}",
       "html, body {",
       "  font-family: " + bodyStack + " !important;",
+      "  color: " + s.bodyColor + ";",
+      "}",
+      "p, li, dd, dt, span:not([class*='font-']) {",
       "  color: " + s.bodyColor + ";",
       "}",
       "h1, h2, h3, h4, h5, h6 {",
@@ -156,6 +165,22 @@
       "code, kbd, pre, samp, .font-mono, .font-mono-ui {",
       "  font-family: " + monoStack + " !important;",
       "  color: " + s.monoColor + ";",
+      "}",
+      // Nous DS utility classes — these win over h1/element selectors
+      // because the DS components apply them inline. Sidebar nav items,
+      // inputs, selects, and toasts use .font-courier; page titles and
+      // card titles use .font-expanded.
+      ".font-courier, .font-compressed {",
+      "  font-family: " + bodyStack + " !important;",
+      "  letter-spacing: 0.02em;",
+      "}",
+      ".font-expanded, .font-mondwest, .font-trim {",
+      "  font-family: " + displayStack + " !important;",
+      "}",
+      // Card titles use .font-expanded with uppercase + tracking-[0.08em].
+      // Keep the uppercase styling but in the user's heading font + color.
+      "[class*='font-expanded'] {",
+      "  color: " + s.headingColor + ";",
       "}"
     ].join("\n");
   }
@@ -415,11 +440,11 @@
 
     var statusBadge = null;
     if (status.kind === "saving") {
-      statusBadge = h(C.Badge, { variant: "secondary" }, status.message);
+      statusBadge = h(C.Badge, { tone: "secondary" }, status.message);
     } else if (status.kind === "ok") {
-      statusBadge = h(C.Badge, { variant: "default" }, status.message);
+      statusBadge = h(C.Badge, { tone: "success" }, status.message);
     } else if (status.kind === "error") {
-      statusBadge = h(C.Badge, { variant: "destructive" }, status.message);
+      statusBadge = h(C.Badge, { tone: "destructive" }, status.message);
     }
 
     return h("div", { "data-plugin": PLUGIN_NAME, className: "hfc-page" },
@@ -433,8 +458,12 @@
         ),
         h("div", { className: "hfc-header-actions" },
           statusBadge,
+          // Nous DS Button: `invert` = subtle 15% bg + outline; default = solid
+          // cream. We use `invert` while overrides are ON (they're already
+          // active, so the button is a de-emphasized "turn it off") and the
+          // solid default while OFF (prominent "turn it on" CTA).
           h(C.Button, {
-            variant: draft.enabled ? "secondary" : "default",
+            invert: draft.enabled,
             onClick: onToggle
           }, draft.enabled ? "Disable overrides" : "Enable overrides")
         )
@@ -540,12 +569,13 @@
       // Footer actions
       h("div", { className: "hfc-footer" },
         h(C.Button, {
-          variant: "outline",
+          outlined: true,
+          invert: true,
           onClick: onReset
         }, "Reset to defaults"),
         h("div", { className: "hfc-footer-right" },
           dirty
-            ? h(C.Button, { variant: "ghost", onClick: onRevert }, "Revert changes")
+            ? h(C.Button, { ghost: true, onClick: onRevert }, "Revert changes")
             : null,
           h(C.Button, {
             disabled: !dirty || status.kind === "saving",
