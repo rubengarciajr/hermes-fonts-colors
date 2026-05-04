@@ -143,6 +143,11 @@
       "  --theme-base-size: " + baseSize + "px;",
       "  --color-foreground: " + s.bodyColor + ";",
       "  --color-ring: " + s.accentColor + ";",
+      // The Nous DS Button's default solid variant uses Tailwind's
+      // `text-background-base` utility, which resolves through this var.
+      // Overriding it at :root means the user's buttonTextColor takes
+      // effect via the natural cascade — no specificity battles.
+      "  --color-background-base: " + (s.buttonTextColor || "#041c1c") + ";",
       "  --hfc-heading-color: " + s.headingColor + ";",
       "  --hfc-body-color: " + s.bodyColor + ";",
       "  --hfc-mono-color: " + s.monoColor + ";",
@@ -160,8 +165,14 @@
       "h1 { font-size: " + (baseSize * Math.pow(headingScale, 3)).toFixed(2) + "px; }",
       "h2 { font-size: " + (baseSize * Math.pow(headingScale, 2)).toFixed(2) + "px; }",
       "h3 { font-size: " + (baseSize * headingScale).toFixed(2) + "px; }",
+      // Note: font-family applies to ALL .font-mono elements (including
+      // Nous DS Buttons, which use Typography mono={true}). But the mono
+      // COLOR is scoped away from <button> — buttons get their text color
+      // from the buttonTextColor rule below, not from monoColor.
       "code, kbd, pre, samp, .font-mono, .font-mono-ui {",
       "  font-family: " + monoStack + " !important;",
+      "}",
+      "code, kbd, pre, samp, .font-mono-ui, :not(button).font-mono {",
       "  color: " + s.monoColor + ";",
       "}",
       // Nous DS utility font classes (sidebar, inputs, selects, page titles,
