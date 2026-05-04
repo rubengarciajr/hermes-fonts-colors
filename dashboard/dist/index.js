@@ -84,9 +84,6 @@
     bodyColor: "#ffe6cb",
     monoColor: "#a7c5ff",
     accentColor: "#ffbd38",
-    // Default matches the Nous DS `text-background-base` so out-of-the-box
-    // button rendering doesn't change. Users can pick any contrast color.
-    buttonTextColor: "#041c1c",
     enabled: true
   };
 
@@ -147,7 +144,6 @@
       "  --hfc-body-color: " + s.bodyColor + ";",
       "  --hfc-mono-color: " + s.monoColor + ";",
       "  --hfc-accent-color: " + s.accentColor + ";",
-      "  --hfc-button-text-color: " + (s.buttonTextColor || "#041c1c") + ";",
       "}",
       "html, body {",
       "  font-family: " + bodyStack + " !important;",
@@ -184,22 +180,14 @@
       // Apply heading color here so "FONTS", "SIZES", "COLORS" titles match.
       "[class*='font-expanded'] {",
       "  color: " + s.headingColor + ";",
-      "}",
-      // Button text color override — scoped to inside <button> elements
-      // only. The Nous DS Button's default solid variant uses Tailwind's
-      // `text-background-base` utility for its text, which resolves through
-      // var(--color-background-base). By redefining that var INSIDE button
-      // elements, the user's color takes effect via the natural cascade.
-      //
-      // Why scoped, not :root: --color-background-base is also used by
-      // bg-background-base utilities for page header bg, sidebar dropdowns,
-      // panels, etc. A :root override tinted those too. Scoping to button
-      // means solid buttons get the user color, but ghost/outlined buttons
-      // (which use text-current to inherit from parent) keep their normal
-      // cream color and stay visible against dark sidebars.
-      "button:not([disabled]) {",
-      "  --color-background-base: " + (s.buttonTextColor || "#041c1c") + ";",
       "}"
+      // Button colors are deliberately left alone. The Hermes / Nous DS
+      // already handles button contrast across all variants (solid, ghost,
+      // outlined, invert) — overriding from here introduced more bugs
+      // than value (sidebar ghost buttons turning invisible, dropdowns
+      // tinting wrong, etc.). If a user really wants different button
+      // colors they should pick a different Hermes theme, not fight the
+      // DS via this plugin.
     ].join("\n");
   }
 
@@ -702,11 +690,6 @@
             id: "accent-color", label: "Accent (focus rings)",
             value: draft.accentColor,
             onChange: function (v) { update({ accentColor: v }); }
-          }),
-          h(ColorRow, {
-            id: "button-text-color", label: "Button text",
-            value: draft.buttonTextColor || "#041c1c",
-            onChange: function (v) { update({ buttonTextColor: v }); }
           })
         )
       ),

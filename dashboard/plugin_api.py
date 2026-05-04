@@ -91,9 +91,6 @@ DEFAULTS: Dict[str, Any] = {
     "bodyColor": "#ffe6cb",
     "monoColor": "#a7c5ff",
     "accentColor": "#ffbd38",
-    # Default matches the Nous DS `text-background-base` (#041c1c — very
-    # dark teal) so existing button rendering is preserved out of the box.
-    "buttonTextColor": "#041c1c",
     "enabled": True,
 }
 
@@ -166,7 +163,7 @@ def _validate(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="headingScale must be between 1.0 and 2.0")
     out["headingScale"] = round(heading_scale_f, 3)
 
-    for color_key in ("headingColor", "bodyColor", "monoColor", "accentColor", "buttonTextColor"):
+    for color_key in ("headingColor", "bodyColor", "monoColor", "accentColor"):
         color_val = payload.get(color_key, DEFAULTS[color_key])
         if not isinstance(color_val, str) or not HEX_RE.match(color_val):
             raise HTTPException(
