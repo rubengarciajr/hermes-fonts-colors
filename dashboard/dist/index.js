@@ -143,11 +143,6 @@
       "  --theme-base-size: " + baseSize + "px;",
       "  --color-foreground: " + s.bodyColor + ";",
       "  --color-ring: " + s.accentColor + ";",
-      // The Nous DS Button's default solid variant uses Tailwind's
-      // `text-background-base` utility, which resolves through this var.
-      // Overriding it at :root means the user's buttonTextColor takes
-      // effect via the natural cascade — no specificity battles.
-      "  --color-background-base: " + (s.buttonTextColor || "#041c1c") + ";",
       "  --hfc-heading-color: " + s.headingColor + ";",
       "  --hfc-body-color: " + s.bodyColor + ";",
       "  --hfc-mono-color: " + s.monoColor + ";",
@@ -190,14 +185,20 @@
       "[class*='font-expanded'] {",
       "  color: " + s.headingColor + ";",
       "}",
-      // Button text color override. Targets active <button> elements
-      // dashboard-wide. Skips disabled buttons so the DS-defined
-      // disabled state (`disabled:text-midground`) keeps working as a
-      // visual cue. Uses !important because the Nous DS button variants
-      // ship with explicit `text-background-base` / `text-midground`
-      // utility classes that would otherwise win.
+      // Button text color override — scoped to inside <button> elements
+      // only. The Nous DS Button's default solid variant uses Tailwind's
+      // `text-background-base` utility for its text, which resolves through
+      // var(--color-background-base). By redefining that var INSIDE button
+      // elements, the user's color takes effect via the natural cascade.
+      //
+      // Why scoped, not :root: --color-background-base is also used by
+      // bg-background-base utilities for page header bg, sidebar dropdowns,
+      // panels, etc. A :root override tinted those too. Scoping to button
+      // means solid buttons get the user color, but ghost/outlined buttons
+      // (which use text-current to inherit from parent) keep their normal
+      // cream color and stay visible against dark sidebars.
       "button:not([disabled]) {",
-      "  color: " + (s.buttonTextColor || "#041c1c") + " !important;",
+      "  --color-background-base: " + (s.buttonTextColor || "#041c1c") + ";",
       "}"
     ].join("\n");
   }
