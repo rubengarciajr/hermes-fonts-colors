@@ -1,0 +1,167 @@
+/* Hermes Fonts + Colors — page chrome.
+ *
+ * Only styles the Styling tab itself. The actual global font / color
+ * overrides are written into a separate <style id="hermes-fonts-colors-overrides">
+ * tag at runtime by index.js — see buildOverrideCSS(). Keeping the two
+ * separate means the page can re-render without flashing the global
+ * styles, and themes that disable the plugin still get a clean teardown.
+ */
+
+[data-plugin="hermes-fonts-colors"].hfc-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-muted-foreground);
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.95rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-numeric {
+  margin-left: 0.4rem;
+  font-family: var(--theme-font-mono);
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-slider {
+  width: 100%;
+  accent-color: var(--hfc-accent-color, var(--color-ring));
+  cursor: pointer;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem 1.25rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-color-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-color-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-color-swatch {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+[data-plugin="hermes-fonts-colors"] .hfc-color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-color-hex {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+}
+
+/* Live preview pane — boxed in so the typography doesn't bleed into
+   the surrounding card chrome and the user can compare side-by-side
+   across saves. */
+[data-plugin="hermes-fonts-colors"] .hfc-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--midground-base) 3%, transparent);
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-preview-h1,
+[data-plugin="hermes-fonts-colors"] .hfc-preview-h2 {
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-preview-body {
+  margin: 0.4rem 0 0;
+  line-height: 1.55;
+  max-width: 60ch;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-preview-mono {
+  margin: 0.6rem 0 0;
+  font-size: 0.95em;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-preview-accent {
+  margin: 0.2rem 0 0;
+  font-weight: 500;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-footer-right {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

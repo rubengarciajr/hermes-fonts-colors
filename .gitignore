@@ -1,0 +1,10 @@
+# User-specific runtime state. Created on first save.
+state.json
+
+# Python bytecode (FastAPI imports plugin_api.py at runtime).
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db
