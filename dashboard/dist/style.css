@@ -165,3 +165,43 @@
   gap: 0.5rem;
   align-items: center;
 }
+
+/* Update-available banner. Renders only when the backend reports a newer
+   version on GitHub, or while an update is in flight / has just finished.
+   Sits above the page header so it's the first thing the user sees. */
+[data-plugin="hermes-fonts-colors"] .hfc-update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--hfc-accent-color, var(--color-ring)) 40%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--hfc-accent-color, var(--color-ring)) 8%, transparent);
+  font-size: 0.9rem;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-update-banner code {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85rem;
+  padding: 0.05rem 0.35rem;
+  background: color-mix(in srgb, var(--midground-base) 8%, transparent);
+  border-radius: 3px;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-update-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-update-success {
+  border-color: color-mix(in srgb, var(--color-success, #4ade80) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success, #4ade80) 10%, transparent);
+}
+
+[data-plugin="hermes-fonts-colors"] .hfc-update-error {
+  border-color: color-mix(in srgb, var(--color-destructive, #fb2c36) 40%, transparent);
+  background: color-mix(in srgb, var(--color-destructive, #fb2c36) 10%, transparent);
+}

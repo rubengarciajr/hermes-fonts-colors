@@ -3,7 +3,7 @@
   "label": "Styling",
   "description": "Customize dashboard fonts, sizes, and colors. Layers on top of any active Hermes theme.",
   "icon": "Palette",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "tab": { "path": "/styling", "position": "after:config" },
   "entry": "dist/index.js",
   "css": "dist/style.css",

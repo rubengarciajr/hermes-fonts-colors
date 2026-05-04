@@ -243,6 +243,34 @@
     return data;
   }
 
+  // Update-check helpers. Backend caches 5 min; we still wrap so a network
+  // error surfaces as a typed result instead of a thrown exception (the page
+  // shouldn't blow up just because GitHub is unreachable).
+  async function fetchVersionInfo() {
+    try {
+      var res = await fetch(API_BASE + "/version");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } catch (err) {
+      return {
+        local: null, remote: null, update_available: false,
+        error: String(err.message || err)
+      };
+    }
+  }
+
+  async function runUpdate() {
+    var res = await fetch(API_BASE + "/update", { method: "POST" });
+    var text = await res.text();
+    var body = null;
+    try { body = text ? JSON.parse(text) : null; } catch (_) { /* ignore */ }
+    if (!res.ok) {
+      var detail = (body && body.detail) ? body.detail : (text || ("HTTP " + res.status));
+      throw new Error(detail);
+    }
+    return body;
+  }
+
   // Listen for save events from the page so the global style updates
   // even when the page component re-renders multiple times.
   window.addEventListener(EVENT_NAME, function (e) {
@@ -337,6 +365,43 @@
     );
   }
 
+  // Banner shown above page header when a newer release is on GitHub.
+  // Renders nothing when versions match or the check failed (offline, etc.).
+  function UpdateBanner(props) {
+    var info = props.info;
+    var phase = props.phase;
+    if (!info) return null;
+
+    if (phase === "updated") {
+      return h("div", { className: "hfc-update-banner hfc-update-success" },
+        h("span", null, "Updated to v" + (info.local || "?") + ". Reload the dashboard to apply."),
+        h(C.Button, { onClick: function () { window.location.reload(); } }, "Reload dashboard")
+      );
+    }
+    if (phase === "updating") {
+      return h("div", { className: "hfc-update-banner" },
+        h("span", null, "Updating from v" + info.local + " to v" + info.remote + "…")
+      );
+    }
+    if (phase === "error" && props.errorMessage) {
+      return h("div", { className: "hfc-update-banner hfc-update-error" },
+        h("span", null, "Update failed: " + props.errorMessage),
+        h(C.Button, { ghost: true, onClick: props.onDismiss }, "Dismiss")
+      );
+    }
+    if (info.update_available) {
+      return h("div", { className: "hfc-update-banner" },
+        h("span", { className: "hfc-update-msg" },
+          "Update available: ",
+          h("code", null, "v" + info.local), " → ",
+          h("code", null, "v" + info.remote)
+        ),
+        h(C.Button, { outlined: true, invert: true, onClick: props.onUpdate }, "Update now")
+      );
+    }
+    return null;
+  }
+
   function StylingPage() {
     var useState = hooks.useState;
     var useEffect = hooks.useEffect;
@@ -359,6 +424,20 @@
     var loading = loadingState[0];
     var setLoading = loadingState[1];
 
+    // Update-check state. `versionInfo` holds {local, remote, update_available}
+    // from the backend; `updatePhase` walks idle → updating → updated|error.
+    var versionInfoState = useState(null);
+    var versionInfo = versionInfoState[0];
+    var setVersionInfo = versionInfoState[1];
+
+    var updatePhaseState = useState("idle");
+    var updatePhase = updatePhaseState[0];
+    var setUpdatePhase = updatePhaseState[1];
+
+    var updateErrorState = useState("");
+    var updateError = updateErrorState[0];
+    var setUpdateError = updateErrorState[1];
+
     // First-mount fetch (in case the page is opened before the IIFE's
     // initial fetch resolved, or after a long-idle session).
     useEffect(function () {
@@ -371,6 +450,36 @@
         applyGlobalStyles(data);
       });
       return function () { cancelled = true; };
+    }, []);
+
+    // Update check on page mount. Backend caches 5 min so this is cheap.
+    // Errors silently no-op (banner stays hidden) — we don't want to nag a
+    // user who's offline or behind a corporate proxy.
+    useEffect(function () {
+      var cancelled = false;
+      fetchVersionInfo().then(function (info) {
+        if (cancelled) return;
+        setVersionInfo(info);
+      });
+      return function () { cancelled = true; };
+    }, []);
+
+    var onUpdate = useCallback(async function () {
+      setUpdatePhase("updating");
+      setUpdateError("");
+      try {
+        var info = await runUpdate();
+        setVersionInfo(info);
+        setUpdatePhase("updated");
+      } catch (err) {
+        setUpdatePhase("error");
+        setUpdateError(String(err.message || err));
+      }
+    }, []);
+
+    var onDismissUpdateError = useCallback(function () {
+      setUpdatePhase("idle");
+      setUpdateError("");
     }, []);
 
     var dirty = JSON.stringify(draft) !== JSON.stringify(saved);
@@ -448,6 +557,14 @@
     }
 
     return h("div", { "data-plugin": PLUGIN_NAME, className: "hfc-page" },
+      // Update banner (renders nothing when no update is available)
+      h(UpdateBanner, {
+        info: versionInfo,
+        phase: updatePhase,
+        errorMessage: updateError,
+        onUpdate: onUpdate,
+        onDismiss: onDismissUpdateError
+      }),
       // Header
       h("div", { className: "hfc-header" },
         h("div", null,

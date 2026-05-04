@@ -12,10 +12,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 import threading
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 try:
     from fastapi import APIRouter, HTTPException, Request
@@ -220,3 +225,198 @@ async def reset_settings() -> Dict[str, Any]:
             if STATE_PATH.exists():
                 STATE_PATH.unlink()
     return dict(DEFAULTS)
+
+
+# ---------------------------------------------------------------------------
+# Update check + self-update via git pull.
+#
+# The frontend calls /version on Styling page mount; if the remote manifest's
+# version is higher than the local one, an "Update now" button appears that
+# POSTs to /update. /update runs `git pull --ff-only` after validating that
+# (a) the plugin dir is a git repo, (b) the origin remote points at the
+# expected GitHub URL, (c) there are no uncommitted local changes. After
+# a successful pull the user reloads the dashboard tab — the new dist/index.js
+# is already on disk and served fresh by FastAPI's static-file route.
+# ---------------------------------------------------------------------------
+
+MANIFEST_PATH = PLUGIN_DIR / "dashboard" / "manifest.json"
+EXPECTED_REMOTE_URL = "https://github.com/rubengarciajr/hermes-fonts-colors"
+REMOTE_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/rubengarciajr/hermes-fonts-colors"
+    "/main/dashboard/manifest.json"
+)
+_VERSION_CACHE: Dict[str, Any] = {"data": None, "fetched_at": 0.0}
+_VERSION_CACHE_TTL = 300.0  # 5 minutes
+_VERSION_LOCK = threading.Lock()
+_GIT_TIMEOUT_SHORT = 10
+_GIT_TIMEOUT_LONG = 30
+
+
+def _parse_semver(s: str) -> Tuple[int, ...]:
+    """Best-effort semver tuple parse. Returns (0,) on parse failure so an
+    unparseable version compares as the lowest possible value (we won't
+    accidentally claim an update is available when versions are weird)."""
+    if not isinstance(s, str):
+        return (0,)
+    try:
+        return tuple(int(x) for x in s.split(".")[:3])
+    except ValueError:
+        return (0,)
+
+
+def _read_local_version() -> str:
+    try:
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        return str(manifest.get("version", "0.0.0"))
+    except (OSError, json.JSONDecodeError):
+        return "0.0.0"
+
+
+def _fetch_remote_manifest() -> Dict[str, Any]:
+    req = urllib.request.Request(
+        REMOTE_MANIFEST_URL,
+        headers={"User-Agent": "hermes-fonts-colors-update-check/0.1"},
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _compute_version_info(force: bool = False) -> Dict[str, Any]:
+    now = time.time()
+    cached = _VERSION_CACHE["data"]
+    fetched_at = _VERSION_CACHE["fetched_at"]
+    if not force and cached and (now - fetched_at) < _VERSION_CACHE_TTL:
+        return cached
+
+    local_version = _read_local_version()
+    info: Dict[str, Any] = {
+        "local": local_version,
+        "remote": None,
+        "update_available": False,
+        "checked_at": now,
+        "error": None,
+    }
+    try:
+        remote = _fetch_remote_manifest()
+        remote_version = str(remote.get("version", "0.0.0"))
+        info["remote"] = remote_version
+        info["update_available"] = (
+            _parse_semver(remote_version) > _parse_semver(local_version)
+        )
+    except urllib.error.URLError as exc:
+        info["error"] = "network: " + str(getattr(exc, "reason", exc))
+    except (TimeoutError, json.JSONDecodeError, OSError) as exc:
+        info["error"] = type(exc).__name__ + ": " + str(exc)
+
+    _VERSION_CACHE["data"] = info
+    _VERSION_CACHE["fetched_at"] = now
+    return info
+
+
+def _git(args: list, *, cwd: Path, timeout: int) -> Tuple[int, str, str]:
+    """Run a git subcommand with a hard timeout. Returns (rc, stdout, stderr)."""
+    proc = subprocess.run(
+        ["git", "-C", str(cwd)] + args,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+
+
+def _run_self_update() -> Dict[str, Any]:
+    if not (PLUGIN_DIR / ".git").exists():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Plugin directory is not a git repository — automatic update "
+                "is only available when the plugin was installed via "
+                "`git clone`. Reinstall via the README's git clone command "
+                "to enable this."
+            ),
+        )
+
+    if shutil.which("git") is None:
+        raise HTTPException(status_code=500, detail="git binary not found on PATH")
+
+    # Verify origin remote — anti-MITM in case origin got rewritten.
+    try:
+        rc, out, err = _git(
+            ["remote", "get-url", "origin"], cwd=PLUGIN_DIR, timeout=_GIT_TIMEOUT_SHORT
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git remote check timed out")
+    if rc != 0:
+        raise HTTPException(status_code=500, detail="git remote get-url origin failed: " + (err or out))
+    remote_url = out.rstrip("/")
+    expected = EXPECTED_REMOTE_URL.rstrip("/")
+    # Allow .git suffix and ssh-style URLs that resolve to the same repo.
+    matches = (
+        remote_url == expected
+        or remote_url == expected + ".git"
+        or remote_url == "git@github.com:rubengarciajr/hermes-fonts-colors.git"
+    )
+    if not matches:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Refusing to pull: origin remote " + remote_url + " does not "
+                "match the expected " + expected + ". If you intentionally "
+                "forked this plugin, run `git pull` from the terminal instead."
+            ),
+        )
+
+    # Refuse to pull over uncommitted changes — would lose user edits.
+    try:
+        rc, out, err = _git(
+            ["status", "--porcelain"], cwd=PLUGIN_DIR, timeout=_GIT_TIMEOUT_SHORT
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git status check timed out")
+    if rc != 0:
+        raise HTTPException(status_code=500, detail="git status failed: " + (err or out))
+    if out:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Plugin directory has uncommitted local changes. Stash or "
+                "commit them before updating, or run `git pull` from the "
+                "terminal so you can resolve manually."
+            ),
+        )
+
+    # Run the pull.
+    try:
+        rc, out, err = _git(
+            ["pull", "--ff-only", "origin", "main"],
+            cwd=PLUGIN_DIR,
+            timeout=_GIT_TIMEOUT_LONG,
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git pull timed out after 30s")
+    if rc != 0:
+        raise HTTPException(
+            status_code=500,
+            detail="git pull failed: " + (err or out or "unknown error"),
+        )
+
+    # Bust the cache so the immediate /version response reflects the pulled state.
+    with _VERSION_LOCK:
+        _VERSION_CACHE["data"] = None
+        _VERSION_CACHE["fetched_at"] = 0.0
+
+    info = _compute_version_info(force=True)
+    info["pull_output"] = out
+    return info
+
+
+@router.get("/version")
+async def get_version() -> Dict[str, Any]:
+    """Return current local version + latest remote version. Cached 5 min."""
+    return _compute_version_info()
+
+
+@router.post("/update")
+async def post_update() -> Dict[str, Any]:
+    """Run `git pull` to upgrade the plugin in place."""
+    return _run_self_update()
