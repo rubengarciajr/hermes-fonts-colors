@@ -84,6 +84,9 @@
     bodyColor: "#ffe6cb",
     monoColor: "#a7c5ff",
     accentColor: "#ffbd38",
+    // Default matches the Nous DS `text-background-base` so out-of-the-box
+    // button rendering doesn't change. Users can pick any contrast color.
+    buttonTextColor: "#041c1c",
     enabled: true
   };
 
@@ -144,6 +147,7 @@
       "  --hfc-body-color: " + s.bodyColor + ";",
       "  --hfc-mono-color: " + s.monoColor + ";",
       "  --hfc-accent-color: " + s.accentColor + ";",
+      "  --hfc-button-text-color: " + (s.buttonTextColor || "#041c1c") + ";",
       "}",
       "html, body {",
       "  font-family: " + bodyStack + " !important;",
@@ -174,6 +178,15 @@
       // Apply heading color here so "FONTS", "SIZES", "COLORS" titles match.
       "[class*='font-expanded'] {",
       "  color: " + s.headingColor + ";",
+      "}",
+      // Button text color override. Targets active <button> elements
+      // dashboard-wide. Skips disabled buttons so the DS-defined
+      // disabled state (`disabled:text-midground`) keeps working as a
+      // visual cue. Uses !important because the Nous DS button variants
+      // ship with explicit `text-background-base` / `text-midground`
+      // utility classes that would otherwise win.
+      "button:not([disabled]) {",
+      "  color: " + (s.buttonTextColor || "#041c1c") + " !important;",
       "}"
     ].join("\n");
   }
@@ -677,6 +690,11 @@
             id: "accent-color", label: "Accent (focus rings)",
             value: draft.accentColor,
             onChange: function (v) { update({ accentColor: v }); }
+          }),
+          h(ColorRow, {
+            id: "button-text-color", label: "Button text",
+            value: draft.buttonTextColor || "#041c1c",
+            onChange: function (v) { update({ buttonTextColor: v }); }
           })
         )
       ),

@@ -91,6 +91,9 @@ DEFAULTS: Dict[str, Any] = {
     "bodyColor": "#ffe6cb",
     "monoColor": "#a7c5ff",
     "accentColor": "#ffbd38",
+    # Default matches the Nous DS `text-background-base` (#041c1c — very
+    # dark teal) so existing button rendering is preserved out of the box.
+    "buttonTextColor": "#041c1c",
     "enabled": True,
 }
 
@@ -163,7 +166,7 @@ def _validate(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="headingScale must be between 1.0 and 2.0")
     out["headingScale"] = round(heading_scale_f, 3)
 
-    for color_key in ("headingColor", "bodyColor", "monoColor", "accentColor"):
+    for color_key in ("headingColor", "bodyColor", "monoColor", "accentColor", "buttonTextColor"):
         color_val = payload.get(color_key, DEFAULTS[color_key])
         if not isinstance(color_val, str) or not HEX_RE.match(color_val):
             raise HTTPException(
@@ -282,35 +285,54 @@ def _fetch_remote_manifest() -> Dict[str, Any]:
 
 
 def _compute_version_info(force: bool = False) -> Dict[str, Any]:
+    """Return current local version + latest remote version.
+
+    Local version is read fresh from disk on every call — it's a single
+    JSON file read, so caching adds zero meaningful savings and only
+    creates staleness bugs when the user updates the plugin (manual
+    `git pull` or manifest edit). Remote version IS cached for 5 minutes
+    because that's a network round-trip to GitHub.
+    """
     now = time.time()
-    cached = _VERSION_CACHE["data"]
-    fetched_at = _VERSION_CACHE["fetched_at"]
-    if not force and cached and (now - fetched_at) < _VERSION_CACHE_TTL:
-        return cached
-
     local_version = _read_local_version()
-    info: Dict[str, Any] = {
-        "local": local_version,
-        "remote": None,
-        "update_available": False,
-        "checked_at": now,
-        "error": None,
-    }
-    try:
-        remote = _fetch_remote_manifest()
-        remote_version = str(remote.get("version", "0.0.0"))
-        info["remote"] = remote_version
-        info["update_available"] = (
-            _parse_semver(remote_version) > _parse_semver(local_version)
-        )
-    except urllib.error.URLError as exc:
-        info["error"] = "network: " + str(getattr(exc, "reason", exc))
-    except (TimeoutError, json.JSONDecodeError, OSError) as exc:
-        info["error"] = type(exc).__name__ + ": " + str(exc)
 
-    _VERSION_CACHE["data"] = info
-    _VERSION_CACHE["fetched_at"] = now
-    return info
+    cached_remote = _VERSION_CACHE.get("remote")
+    cached_error = _VERSION_CACHE.get("error")
+    fetched_at = _VERSION_CACHE.get("fetched_at", 0.0)
+    cache_fresh = (
+        cached_remote is not None
+        and not cached_error
+        and (now - fetched_at) < _VERSION_CACHE_TTL
+    )
+
+    if force or not cache_fresh:
+        try:
+            remote = _fetch_remote_manifest()
+            cached_remote = str(remote.get("version", "0.0.0"))
+            cached_error = None
+        except urllib.error.URLError as exc:
+            cached_remote = None
+            cached_error = "network: " + str(getattr(exc, "reason", exc))
+        except (TimeoutError, json.JSONDecodeError, OSError) as exc:
+            cached_remote = None
+            cached_error = type(exc).__name__ + ": " + str(exc)
+        _VERSION_CACHE["remote"] = cached_remote
+        _VERSION_CACHE["error"] = cached_error
+        _VERSION_CACHE["fetched_at"] = now
+        fetched_at = now
+
+    update_available = (
+        cached_remote is not None
+        and _parse_semver(cached_remote) > _parse_semver(local_version)
+    )
+
+    return {
+        "local": local_version,
+        "remote": cached_remote,
+        "update_available": update_available,
+        "checked_at": fetched_at,
+        "error": cached_error,
+    }
 
 
 def _git(args: list, *, cwd: Path, timeout: int) -> Tuple[int, str, str]:
