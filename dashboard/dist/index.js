@@ -114,33 +114,31 @@
     var baseSize     = Math.max(10, Math.min(28, Number(s.baseSizePx) || 15));
 
     // We override:
-    //   --theme-font-* and --theme-base-size — the design-system-level vars
-    //     so every component that reads them (html, body, code, .font-mono)
-    //     picks up our fonts without needing per-element overrides.
-    //   --color-ring — so focus outlines pick up the user's accent.
-    //   h1-h6 / code — explicit element selectors with !important so we
-    //     win against component-level styles.
+    //   --theme-font-* and --theme-base-size — design-system font vars.
+    //   --color-foreground — the Tailwind `text-foreground` utility most
+    //     body prose uses. Overriding here is safe because solid buttons
+    //     use `text-background-base` (unchanged) and ghost/outlined buttons
+    //     use `text-current` which inherits from html (also unchanged).
+    //   --color-ring — focus outline accent.
+    //   h1-h6 / code — explicit element selectors with !important.
     //   .font-courier / .font-expanded / .font-compressed / .font-mondwest /
-    //     .font-trim — the Nous Research design-system "@utility" font classes
-    //     hardcoded on sidebar items, page titles, card titles, inputs, and
-    //     selects. Without these overrides the dashboard chrome stays in
-    //     Courier Prime / Rules Expanded regardless of what the user picks.
+    //     .font-trim — Nous DS @utility font classes hardcoded on sidebar
+    //     items, page titles, card titles, inputs, and selects.
     //
-    // Heading scale is applied to h1-h3 with a geometric ramp; h4-h6 stay
-    // close to body size so dense pages don't blow out.
-    //
-    // We deliberately do NOT override --color-foreground or
-    // --color-card-foreground here — those are integral to the design-system
-    // color theory and overriding them tints button labels and disabled
-    // states. Body color is applied directly to the <body> element instead;
-    // it cascades into paragraph/inline text but doesn't fight Tailwind
-    // text-* utilities the DS uses for chrome.
+    // We deliberately do NOT use a `body { color: ... }` rule. That cascades
+    // into Nous DS Buttons that use `text-current` (ghost/outlined variants
+    // across the whole dashboard, e.g. /plugins page's "Refresh" button),
+    // which would make them adopt the user's bodyColor — a bad outcome when
+    // the bodyColor is something like pure white that doesn't read against
+    // cream-tinted button backgrounds. Targeting `--color-foreground` instead
+    // affects body prose without leaking into button chrome.
     return [
       ":root {",
       "  --theme-font-sans: " + bodyStack + ";",
       "  --theme-font-display: " + displayStack + ";",
       "  --theme-font-mono: " + monoStack + ";",
       "  --theme-base-size: " + baseSize + "px;",
+      "  --color-foreground: " + s.bodyColor + ";",
       "  --color-ring: " + s.accentColor + ";",
       "  --hfc-heading-color: " + s.headingColor + ";",
       "  --hfc-body-color: " + s.bodyColor + ";",
@@ -149,10 +147,6 @@
       "}",
       "html, body {",
       "  font-family: " + bodyStack + " !important;",
-      "  color: " + s.bodyColor + ";",
-      "}",
-      "p, li, dd, dt, span:not([class*='font-']) {",
-      "  color: " + s.bodyColor + ";",
       "}",
       "h1, h2, h3, h4, h5, h6 {",
       "  font-family: " + displayStack + " !important;",
@@ -166,10 +160,9 @@
       "  font-family: " + monoStack + " !important;",
       "  color: " + s.monoColor + ";",
       "}",
-      // Nous DS utility classes — these win over h1/element selectors
-      // because the DS components apply them inline. Sidebar nav items,
-      // inputs, selects, and toasts use .font-courier; page titles and
-      // card titles use .font-expanded.
+      // Nous DS utility font classes (sidebar, inputs, selects, page titles,
+      // card titles). These win over the h1/body selectors because DS
+      // components apply them inline.
       ".font-courier, .font-compressed {",
       "  font-family: " + bodyStack + " !important;",
       "  letter-spacing: 0.02em;",
@@ -177,8 +170,8 @@
       ".font-expanded, .font-mondwest, .font-trim {",
       "  font-family: " + displayStack + " !important;",
       "}",
-      // Card titles use .font-expanded with uppercase + tracking-[0.08em].
-      // Keep the uppercase styling but in the user's heading font + color.
+      // Card / page titles use .font-expanded with uppercase + tracking.
+      // Apply heading color here so "FONTS", "SIZES", "COLORS" titles match.
       "[class*='font-expanded'] {",
       "  color: " + s.headingColor + ";",
       "}"
